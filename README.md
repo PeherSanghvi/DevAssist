@@ -49,28 +49,43 @@ Python 3.12+, Node 20+, npm 10+. A Groq API key for live chat
 ## Installation
 
 ```bash
+git clone https://github.com/PeherSanghvi/DevAssist.git
+cd DevAssist
+
 # Backend
-cd devassist/backend
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-cp .env.example .env   # then set GROQ_API_KEY in .env
+cd backend
+python -m venv .venv
+
+# Windows PowerShell
+.venv\Scripts\python -m pip install -r requirements.txt
+Copy-Item .env.example .env
+
+# macOS / Linux
+# .venv/bin/pip install -r requirements.txt
+# cp .env.example .env
 
 # Frontend
 cd ../frontend
 npm install
 ```
 
+Then set `GROQ_API_KEY` in `backend/.env`.
+
 ## Environment configuration
 
 Backend (`backend/.env`, see `backend/.env.example`):
 
 ```
-GROQ_API_KEY=          # required for live chat; never commit
-GROQ_MODEL=llama-3.3-70b-versatile   # UNVERIFIED default: confirm it exists
-                                      # in the current Groq model catalogue
+GROQ_API_KEY=          # required for live chat; never commit this file
+GROQ_MODEL=openai/gpt-oss-120b
 FRONTEND_ORIGIN=http://localhost:5173
 MAX_UPLOAD_SIZE_MB=5
 RAG_TOP_K=3
 ```
+
+`GROQ_MODEL` must be available in your Groq account's catalogue.
+`openai/gpt-oss-120b` is the verified example used by this project; check
+https://console.groq.com for the model IDs available to your key.
 
 Frontend (optional, `frontend/.env`; no secrets): `VITE_API_URL=http://localhost:8000`,
 `VITE_API_WS_URL=ws://localhost:8000/ws/chat`. Defaults already point there.
@@ -79,22 +94,42 @@ Frontend (optional, `frontend/.env`; no secrets): `VITE_API_URL=http://localhost
 
 ```bash
 # Backend (port 8000)
-cd devassist/backend && .venv/bin/python -m uvicorn app.main:app --port 8000
+cd backend
+
+# Windows PowerShell
+.venv\Scripts\python -m uvicorn app.main:app --port 8000 --env-file .env --reload
+
+# macOS / Linux
+# .venv/bin/python -m uvicorn app.main:app --port 8000 --env-file .env --reload
+
 # Frontend (port 5173)
-cd devassist/frontend && npm run dev
+cd ../frontend
+npm run dev
 ```
+
+`--env-file .env` is required so the backend receives `GROQ_API_KEY` from the
+local environment file. On Windows, `--reload` also avoids a uvicorn
+`WinError 64` accept-loop crash seen with the default event loop.
 
 Open http://localhost:5173. Chat history lives in `sessionStorage` only.
 
 ## Tests
 
 ```bash
-cd devassist/backend && .venv/bin/python -m pytest tests/ -q   # 22 tests, mocked Groq
-cd devassist/frontend && npx vitest run                          # 12 tests
-cd devassist/frontend && npx vue-tsc -b --noEmit && npm run build
+# Backend
+cd backend
+.venv\Scripts\python -m pytest tests/ -q   # Windows
+# .venv/bin/python -m pytest tests/ -q      # macOS/Linux
+
+# Frontend
+cd ../frontend
+npx vitest run
+npm run build
 ```
 
-No test requires a real Groq key. See `docs/TEST_REPORT.md` for actual results.
+No test requires a real Groq key. Last local verification: 22 backend tests
+passed, 12 frontend tests passed, and the production build succeeded.
+See `docs/TEST_REPORT.md` for the original test report.
 
 ## API
 
@@ -124,11 +159,20 @@ No test requires a real Groq key. See `docs/TEST_REPORT.md` for actual results.
 - No authentication — do not expose the backend publicly without adding auth.
 - The programming-only rule is a prompt-level behavioural boundary, not a
   security guarantee.
-- `GROQ_MODEL` default is unverified against the live Groq catalogue.
-- Live Groq streaming was not verified in this build (no key available);
-  see `docs/TEST_REPORT.md`.
+- Model availability depends on your Groq account. Set `GROQ_MODEL` to a model
+  listed in your Groq catalogue; `openai/gpt-oss-120b` was verified locally.
+- Live Groq streaming and the WebSocket flow were verified locally with a real
+  API key.
 - With the hash embedding fallback, retrieval is vocabulary-overlap based,
   not semantic.
+
+## Environment file safety
+
+The real `backend/.env` contains a live secret and is intentionally ignored by
+Git. Never commit it, paste it into chat, or expose it in frontend code. Only
+`backend/.env.example` — with placeholder/empty values — belongs in the
+repository. If a key is ever exposed, revoke it in the Groq console and create
+a replacement.
 
 ## Deployment guidance
 
